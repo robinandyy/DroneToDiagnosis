@@ -21,7 +21,7 @@ y_test = y_test.ravel()
 
 
 # set accuracy, precision, count, recall, f1 to zero so metrics mean can be calculated
-accuracy, precision, count, recall, f1 = 0
+accuracy, precision, count, recall, f1 = 0, 0, 0, 0, 0
 
 
 for i in range(50):
