@@ -4,6 +4,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from prettytable import PrettyTable 
 from ctgan import CTGAN
+from pandas import DataFrame
+
+
+num_epochs = 300
+num_synthetic_samples = 175
 
 # retrieve X and y from csv
 X = np.genfromtxt('Augmentation\\vineyard_data.csv', skip_header=1, usecols=(0,1,2,3), delimiter=',')
@@ -47,21 +52,59 @@ for i, (train_index, test_index) in enumerate(skf.split(X, y)):
 
 
 
-    y_test = y_test.ravel()
+    
 
-
+    
     train_data = np.hstack([X_train, y_train])
-    ctgan = CTGAN(epochs=50)
+    healthy_train_data = train_data[train_data[:,-1]==0.0]
+    
+    diseased_train_data = train_data[train_data[:,-1]==1.0]
+
+
+
+
+    ctgan_healthy = CTGAN(epochs=num_epochs)
+    ctgan_diseased = CTGAN(epochs=num_epochs)
+
+
     print("epochs in progress...")
-    ctgan.fit(train_data=train_data, discrete_columns=discrete_columns)
 
-    synthetic_data = ctgan.sample(350)
 
-    X_train_syn = synthetic_data[:,:4] 
-    y_train_syn = synthetic_data[:,-1:]
-    X_train = np.vstack([X_train, X_train_syn])
-    y_train = np.vstack([y_train, y_train_syn]).ravel()
+    ctgan_healthy.fit(train_data=healthy_train_data, discrete_columns=discrete_columns)
+    ctgan_diseased.fit(train_data=diseased_train_data, discrete_columns=discrete_columns)
 
+    healthy_synthetic_data = ctgan_healthy.sample(num_synthetic_samples)
+    diseased_synthetic_data = ctgan_diseased.sample(num_synthetic_samples)
+
+
+    X_healthy_train_syn = healthy_synthetic_data[:,:4] 
+    y_healthy_train_syn = healthy_synthetic_data[:,-1:]
+
+    X_diseased_train_syn = diseased_synthetic_data[:,:4] 
+    y_diseased_train_syn = diseased_synthetic_data[:,-1:]
+
+    X_train = np.vstack([X_train, X_healthy_train_syn, X_diseased_train_syn])
+    y_train = np.vstack([y_train, y_healthy_train_syn, y_diseased_train_syn])
+
+    
+    updated_train = np.hstack([X_train, y_train])
+    combined_test = np.hstack([X_test, y_test])
+
+    total_combined = np.vstack([updated_train, combined_test])
+
+
+
+
+    y_train = y_train.ravel()
+    print(y_train[:3])
+    y_test = y_test.ravel()
+    print(y_test[:3])
+
+    # convert array into dataframe
+    DF = DataFrame(total_combined)
+
+    # save the dataframe as a csv file
+    DF.to_csv(f"Augmentation\\{num_epochs}_epochs_{num_synthetic_samples}_samples_vineyard_data.csv")
 
     # set accuracy, precision, count, recall, f1 to zero so metrics mean can be calculated
     accuracy, precision, count, recall, f1, oob = 0, 0, 0, 0, 0, 0
@@ -154,6 +197,8 @@ for i, (train_index, test_index) in enumerate(skf.split(X, y)):
     Confusion_Matrix.add_row([i, oob_true_pos/count, oob_true_neg/count, oob_false_pos/count, oob_false_neg/count]) 
     Acc_Confusion_Matrix.add_row([i, acc_true_pos/count, acc_true_neg/count, acc_false_pos/count, acc_false_neg/count])
     importances_table.add_row([i, NDRE_importance/count, CHM_importance/count, LAI_importance/count, DTM_importance/count])
+
+
 
  
 print(table)
